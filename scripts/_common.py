@@ -36,6 +36,25 @@ def find_tool(name: str) -> str | None:
     return None
 
 
+def find_obsidian() -> str | None:
+    """Return the path of an installed Obsidian, or None. Only looks, never changes anything."""
+    candidates: list[Path] = []
+    if system() == "Darwin":
+        candidates = [Path("/Applications/Obsidian.app"), Path.home() / "Applications" / "Obsidian.app"]
+    elif system() == "Windows":
+        local = Path(os.environ.get("LOCALAPPDATA", ""))
+        for base in (local / "Programs" / "Obsidian",
+                     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Obsidian"):
+            candidates.append(base / "Obsidian.exe")
+    else:
+        found = shutil.which("obsidian")
+        return found
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return None
+
+
 def has_nvidia_gpu() -> bool:
     smi = find_tool("nvidia-smi")
     if not smi:

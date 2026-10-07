@@ -1,6 +1,6 @@
 # Установка
 
-Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Wireshark (`tshark`) и движок распознавания речи. Движок выбирается автоматически по железу.
+Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Wireshark (`tshark`), Obsidian (для чтения заметок) и движок распознавания речи. Движок выбирается автоматически по железу.
 
 Команды ниже можно выполнить самому или попросить Claude Code. Сообщение для Claude: «Прочитай SETUP.md и подготовь окружение: установи недостающее ПО и Python-пакеты, потом запусти scripts/doctor.py и покажи результат». Он спросит разрешение перед каждой установкой. Шаг 0 (сертификаты) Claude выполнить не может.
 
@@ -23,7 +23,10 @@ winget install Python.Python.3.12
 winget install Gyan.FFmpeg
 winget install yt-dlp.yt-dlp
 winget install WiresharkFoundation.Wireshark
+winget install Obsidian.Obsidian
 ```
+
+`winget` пропускает программы, которые уже установлены, и ничего не перезаписывает. Obsidian нужен, чтобы читать заметки. Если он уже есть, пропустите эту строку.
 
 Закройте и откройте PowerShell, чтобы обновился `PATH`. Затем в папке проекта:
 
@@ -45,11 +48,15 @@ pip install -r scripts/requirements-cuda.txt
 
 ```bash
 brew install git python ffmpeg yt-dlp whisper-cpp
-brew install --cask wireshark
+brew install --cask wireshark obsidian
 mkdir -p ~/.cache/whisper-cpp
 ```
 
 Скачайте файл модели `ggml-large-v3.bin` (около 3 ГБ) с `huggingface.co/ggerganov/whisper.cpp` в `~/.cache/whisper-cpp/`. На Mac скрипт использует `whisper.cpp` с Metal.
+
+## Obsidian
+
+Заметки читаются в Obsidian. Шаблон ничего не настраивает в самой программе. Откройте папку проекта через **Open folder as vault**: Obsidian создаст папку `.obsidian` только внутри проекта. Ваши другие vault'ы не затрагиваются.
 
 ## Проверка
 
