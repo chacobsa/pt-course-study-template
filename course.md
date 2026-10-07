@@ -9,5 +9,6 @@ Facts about this course. The `/init-course` skill fills this file. Edit it by ha
 - Период: TODO
 - Число недель: TODO
 - Условия завершения: TODO
+- Тип курса: TODO (`network`, `general` или `attachments`, см. AGENTS.md, раздел Course profile)
 - Язык заметок: русский
 - Папка заметок недели: TODO (пример: `w1-basics`, можно просто `w1`)

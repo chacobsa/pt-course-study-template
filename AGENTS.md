@@ -9,6 +9,18 @@ You help the user to learn. You do not replace the user's own reading.
 The facts about the course (name, LMS link, number of weeks, dates) are in [[course]] (`course.md`). Read it first.
 If `course.md` still has `TODO` values, run the `/init-course` skill before anything else.
 
+## Course profile
+
+`course.md` has the field "Тип курса". It sets which optional parts apply:
+
+| Profile | For | What it adds |
+|---|---|---|
+| `network` | network traffic and security courses | PCAP rules, Wireshark, `detections/`, the "attack" section in notes |
+| `general` | theory courses without special files | nothing extra. `attachments/` is created only if a material has a file |
+| `attachments` | other courses with files (archives, binaries, datasets, VM images) | `attachments/` and the attachment rules, no network parts |
+
+Parts marked `(network)` in this file apply only to the `network` profile. The attachment rules apply to every profile when a material has a file.
+
 ## Language rules
 
 - Write this file in simplified English.
@@ -37,13 +49,13 @@ SETUP.md                How to install the tools (macOS, Windows).
 notes/<week>/           Summaries. One file for each LMS material.
 transcripts/<week>/     Text of videos and webinars. Committed.
 media/<week>/           Downloaded videos. Never committed.
-pcaps/<week>/           Downloaded course PCAP files. Never committed.
+attachments/<week>/     Downloaded course files (PCAP, archives, binaries, ...). Never committed.
 sources/manifest.csv    One row for each material. Tracks status.
-sources/pcaps.csv       One row for each PCAP file. Tracks status.
+sources/attachments.csv One row for each attachment. Tracks status.
 scripts/                Helper scripts (Python).
 templates/              Templates for notes.
 cheatsheets/            Short references for tools.
-detections/             Suricata rules and Wireshark filters.
+detections/             Suricata rules and Wireshark filters (network profile only).
 labs/                   Reports of practical tasks.
 glossary.md             Term list.
 questions.md            Weak topics and open questions.
@@ -51,7 +63,7 @@ questions.md            Weak topics and open questions.
 
 Week folders use this pattern: `w1`, `w2`, and so on. Notes may use a longer name, for example `w1-basics`.
 
-Public sharing: this repository is a template. The folders `notes/`, `transcripts/`, `media/`, `pcaps/` hold course content. Never add course content to the template repository.
+Public sharing: this repository is a template. The folders `notes/`, `transcripts/`, `media/`, `attachments/` hold course content. Never add course content to the template repository.
 
 ## File naming
 
@@ -59,9 +71,9 @@ Public sharing: this repository is a template. The folders `notes/`, `transcript
 - Make the slug short. Use lowercase letters, digits, and hyphens only.
 - Use the same name in `media/`, `transcripts/`, and `notes/` for the same material.
 - Never rename a file after you create it. The material id stays the same.
-- For a PCAP file, use the same pattern with the extension `.pcap` or `.pcapng`. Example: `m3905-network-vm-start.pcap`.
-- If one material has more than one PCAP file, add a number at the end of the slug. Example: `m3905-network-vm-start-02.pcap`.
-- Keep the original file name in `sources/pcaps.csv`. The course text and the labs use it.
+- For an attachment, use the same pattern with the extension of the file (`.pcap`, `.zip`, `.exe`, ...). Example: `m3905-network-vm-start.pcap`.
+- If one material has more than one attachment, add a number at the end of the slug. Example: `m3905-network-vm-start-02.pcap`.
+- Keep the original file name in `sources/attachments.csv`. The course text and the labs use it.
 
 ## Item numbering
 
@@ -83,7 +95,7 @@ Use these sections in this order:
 
 1. Short summary (main idea in two sentences).
 2. Content, in the order of the source.
-3. For an attack note: what the attack does, which protocols and ports it uses, how it looks in traffic, how to detect it.
+3. `(network)` For an attack note only: what the attack does, which protocols and ports it uses, how it looks in traffic, how to detect it.
 4. Questions for review.
 5. Gaps and links.
 
@@ -124,25 +136,32 @@ Keep each note short. Do not copy long text from the course. Write summaries in 
 
 Never commit `media/`. Never delete a video unless the user asks.
 
-## PCAP files
+## Attachments
 
-Some materials have a PCAP file for download. The user wants to keep these files.
+Some materials have a file for download: PCAP, archive, binary, dataset, VM image, document. The user wants to keep these files.
 
 1. Ask the user before the download. Say the file name, the source, and the size.
 2. Download the file from the link in the material. Do not change the file.
-3. Save it in `pcaps/<week>/`. Use the naming rules above.
-4. Run `python scripts/pcap_register.py <file> --material-id <id> --week <n> --original-name <name> --source-url <url>`. It adds the row to `sources/pcaps.csv` (`id`, `material_id`, `week`, `original_name`, `file`, `sha256`, `size`, `packets`, `duration`, `source_url`, `downloaded`, `analyzed`).
-5. In the note, write which frames matter and what they show. Use frame numbers from the PCAP.
-6. Update `analyzed` only after you check the frames from the note against the file.
+3. Save it in `attachments/<week>/`. Use the naming rules above.
+4. Run `python scripts/attachment_register.py <file> --material-id <id> --week <n> --original-name <name> --source-url <url>`. It detects the kind (`pcap`, `archive`, `binary`, `dataset`, `vm-image`, `document`, `other`) and adds the row to `sources/attachments.csv`: `id`, `material_id`, `week`, `kind`, `original_name`, `file`, `sha256`, `size`, `meta`, `source_url`, `downloaded`, `analyzed`. The `meta` column is JSON: packets and duration for a PCAP; the file count, `encrypted`, and `unsafe_paths` for a zip or tar archive.
+5. In the note, write what the file is, where it comes from, and what the material says to do with it. `(network)` For a PCAP, write which frames matter and what they show. Use frame numbers from the PCAP.
+6. Update `analyzed` only after you check the note against the file.
 
-Safety rules for PCAP files:
+Safety rules for all attachments:
 
-- A PCAP file can hold real malware or exploit data. Treat it as untrusted.
-- Open PCAP files only in Wireshark, `tshark`, or other read-only analysis tools.
-- Never run, open, or unpack a file that you extract from a PCAP file, unless the user asks and the task is in the course lab.
+- A file can hold real malware or exploit data. Treat it as untrusted.
+- Never run, open, unpack, mount, or import it, unless the user asks and the task is in the course lab. Then work only in the isolated environment that the course gives (for example the lab VM).
+- For an archive, list the names only. If `unsafe_paths` is true, never extract it outside a lab VM.
+- If an archive has a password, take it from the text of the material. Never guess or brute-force it.
+- Do not upload a file to an online scanner or sandbox. This shares course material. Do it only if the user asks.
+- Never commit `attachments/`. Never delete an attachment unless the user asks.
+- Put the user's own results from the labs (captures, reports) in `labs/<week>/`, not in `attachments/`.
+
+Extra rules for a PCAP `(network)`:
+
+- Open a PCAP only in Wireshark, `tshark`, or other read-only analysis tools.
 - Never replay PCAP traffic on a real network.
-- Never commit `pcaps/`. Never delete a PCAP file unless the user asks.
-- Put the user's own captures from the labs in `labs/<week>/`, not in `pcaps/`.
+- Never run, open, or unpack a file that you extract from a PCAP, unless the user asks and the task is in the course lab.
 
 ## Do and do not
 
