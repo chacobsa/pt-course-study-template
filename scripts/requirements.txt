@@ -1,0 +1,2 @@
+# For machines without whisper.cpp (Windows, Linux). Not needed on a Mac with whisper-cpp.
+faster-whisper>=1.0.3

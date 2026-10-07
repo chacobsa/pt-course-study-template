@@ -1,0 +1,13 @@
+# Course video/audio: large and licensed, never commit
+media/
+# Course PCAP files: licensed, may hold malware or exploit data, never commit
+pcaps/
+# Model files and Python environments
+.venv/
+__pycache__/
+*.pyc
+*.16k.wav
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.obsidian/workspace*.json
