@@ -1,7 +1,7 @@
 # Course video/audio: large and licensed, never commit
 media/
-# Course PCAP files: licensed, may hold malware or exploit data, never commit
-pcaps/
+# Course files (PCAP, archives, binaries, ...): licensed, may hold malware or exploit data, never commit
+attachments/
 # Model files and Python environments
 .venv/
 __pycache__/

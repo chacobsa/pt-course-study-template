@@ -39,6 +39,17 @@ def report(ok: bool, label: str, detail: str = "", fix: str = "", required: bool
         problems += 1
 
 
+def course_profile() -> str:
+    """Read 'Тип курса' from course.md. Empty string if not set yet."""
+    f = ROOT / "course.md"
+    if not f.exists():
+        return ""
+    import re
+    m = re.search(r"Тип курса:\s*`?(\w+)`?", f.read_text(encoding="utf-8"))
+    value = m.group(1).lower() if m else ""
+    return value if value in ("network", "general", "attachments") else ""
+
+
 def _has_module(name: str) -> bool:
     try:
         return importlib.util.find_spec(name) is not None
@@ -61,8 +72,10 @@ def main() -> None:
 
     for tool in ("git", "ffmpeg", "yt-dlp"):
         check_tool(tool)
-    check_tool("tshark", required=False)  # or the Wireshark GUI
-    check_tool("capinfos", required=False)  # pcap_register.py has a built-in fallback
+    profile = course_profile()
+    if profile in ("network", ""):  # Wireshark tools matter only for network courses
+        check_tool("tshark", required=False)  # or the Wireshark GUI
+        check_tool("capinfos", required=False)  # attachment_register.py has a built-in fallback
 
     obs = find_obsidian()
     report(bool(obs), "Obsidian (to read the notes)", obs or "", HINTS["obsidian"].get(OS, ""), required=False)
@@ -91,6 +104,7 @@ def main() -> None:
 
     print("\nProject:")
     course = (ROOT / "course.md").read_text(encoding="utf-8") if (ROOT / "course.md").exists() else ""
+    print(f"           course profile: {course_profile() or 'not set'}")
     report("TODO" not in course, "course.md filled", fix="run /init-course in Claude Code", required=False)
 
     print()

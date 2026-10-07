@@ -1,6 +1,6 @@
 # Установка
 
-Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Wireshark (`tshark`), Obsidian (для чтения заметок) и движок распознавания речи. Движок выбирается автоматически по железу.
+Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Wireshark (`tshark`, только для курсов с трафиком, профиль `network`), Obsidian (для чтения заметок) и движок распознавания речи. Движок выбирается автоматически по железу.
 
 Команды ниже можно выполнить самому или попросить Claude Code. Сообщение для Claude: «Прочитай SETUP.md и подготовь окружение: установи недостающее ПО и Python-пакеты, потом запусти scripts/doctor.py и покажи результат». Он спросит разрешение перед каждой установкой. Шаг 0 (сертификаты) Claude выполнить не может.
 
@@ -22,7 +22,7 @@ winget install Git.Git
 winget install Python.Python.3.12
 winget install Gyan.FFmpeg
 winget install yt-dlp.yt-dlp
-winget install WiresharkFoundation.Wireshark
+winget install WiresharkFoundation.Wireshark   # только для профиля network
 winget install Obsidian.Obsidian
 ```
 
@@ -48,7 +48,8 @@ pip install -r scripts/requirements-cuda.txt
 
 ```bash
 brew install git python ffmpeg yt-dlp whisper-cpp
-brew install --cask wireshark obsidian
+brew install --cask obsidian
+brew install --cask wireshark   # только для профиля network
 mkdir -p ~/.cache/whisper-cpp
 ```
 
