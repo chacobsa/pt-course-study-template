@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import ROOT, find_tool, has_nvidia_gpu, pick_whisper, system, whisper_cpp_model_path  # noqa: E402
+from _common import ROOT, find_obsidian, find_tool, has_nvidia_gpu, pick_whisper, system, whisper_cpp_model_path  # noqa: E402
 
 OS = system()
 HINTS = {
@@ -19,6 +19,7 @@ HINTS = {
     "tshark": {"Darwin": "brew install --cask wireshark", "Windows": "winget install WiresharkFoundation.Wireshark", "Linux": "sudo apt install tshark"},
     "capinfos": {"Darwin": "comes with Wireshark", "Windows": "comes with Wireshark", "Linux": "sudo apt install wireshark-common"},
     "git": {"Darwin": "xcode-select --install", "Windows": "winget install Git.Git", "Linux": "sudo apt install git"},
+    "obsidian": {"Darwin": "brew install --cask obsidian", "Windows": "winget install Obsidian.Obsidian", "Linux": "see obsidian.md/download"},
     "whisper-cli": {"Darwin": "brew install whisper-cpp", "Windows": "", "Linux": ""},
 }
 
@@ -62,6 +63,9 @@ def main() -> None:
         check_tool(tool)
     check_tool("tshark", required=False)  # or the Wireshark GUI
     check_tool("capinfos", required=False)  # pcap_register.py has a built-in fallback
+
+    obs = find_obsidian()
+    report(bool(obs), "Obsidian (to read the notes)", obs or "", HINTS["obsidian"].get(OS, ""), required=False)
 
     print("\nSpeech to text:")
     plan = pick_whisper()
