@@ -1,12 +1,14 @@
-# Course video/audio: large and licensed, never commit
+# Course video/audio and other course files (PDF, slides): large and licensed, never commit
 media/
-# Course files (PCAP, archives, binaries, ...): licensed, may hold malware or exploit data, never commit
+# Files of materials (PCAP, archives, binaries, ...): licensed, may hold malware or exploit data, never commit
 attachments/
 # Model files and Python environments
 .venv/
 __pycache__/
 *.pyc
 *.16k.wav
+# Personal Claude Code settings
+.claude/settings.local.json
 # OS and editor noise
 .DS_Store
 Thumbs.db

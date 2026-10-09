@@ -10,10 +10,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Places where Windows installers put tools that are often not in PATH.
+# Places where installers put tools that are often not in PATH.
 _WIN_EXTRA = [
     Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Wireshark",
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Wireshark",
+]
+_MAC_EXTRA = [
+    Path("/Applications/Wireshark.app/Contents/MacOS"),
+    Path.home() / "Applications" / "Wireshark.app" / "Contents" / "MacOS",
 ]
 
 
@@ -33,6 +37,11 @@ def find_tool(name: str) -> str | None:
                 candidate = folder / (name + ext)
                 if candidate.exists():
                     return str(candidate)
+    elif system() == "Darwin":
+        for folder in _MAC_EXTRA:
+            candidate = folder / name
+            if candidate.exists():
+                return str(candidate)
     return None
 
 
