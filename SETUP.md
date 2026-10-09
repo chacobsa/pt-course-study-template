@@ -1,6 +1,6 @@
 # Установка
 
-Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Wireshark (`tshark`, только для курсов с трафиком, профиль `network`), Obsidian (для чтения заметок) и движок распознавания речи. Движок выбирается автоматически по железу.
+Нужны: Git, Python, `ffmpeg`, `yt-dlp`, Obsidian (для чтения заметок) и движок распознавания речи. Движок выбирается автоматически по железу. Для курсов с трафиком (профиль `network`) ещё Wireshark (`tshark`) и, по желанию, Suricata для проверки правил.
 
 Команды ниже можно выполнить самому или попросить Claude Code. Сообщение для Claude: «Прочитай SETUP.md и подготовь окружение: установи недостающее ПО и Python-пакеты, потом запусти scripts/doctor.py и покажи результат». Он спросит разрешение перед каждой установкой. Шаг 0 (сертификаты) Claude выполнить не может.
 
@@ -26,6 +26,8 @@ winget install WiresharkFoundation.Wireshark   # только для профи�
 winget install Obsidian.Obsidian
 ```
 
+Suricata для Windows (по желанию, профиль `network`): установщик с suricata.io.
+
 `winget` пропускает программы, которые уже установлены, и ничего не перезаписывает. Obsidian нужен, чтобы читать заметки. Если он уже есть, пропустите эту строку.
 
 Закройте и откройте PowerShell, чтобы обновился `PATH`. Затем в папке проекта:
@@ -33,6 +35,8 @@ winget install Obsidian.Obsidian
 ```powershell
 pip install -r scripts/requirements.txt
 ```
+
+Ставьте пакеты без `--user`. Скрипты запускаются как `python -I`, а в этом режиме Python не видит пакеты из пользовательской папки.
 
 Если есть видеокарта NVIDIA (нужен свежий драйвер):
 
@@ -50,10 +54,13 @@ pip install -r scripts/requirements-cuda.txt
 brew install git python ffmpeg yt-dlp whisper-cpp
 brew install --cask obsidian
 brew install --cask wireshark   # только для профиля network
+brew install suricata           # по желанию, профиль network
 mkdir -p ~/.cache/whisper-cpp
 ```
 
-Скачайте файл модели `ggml-large-v3.bin` (около 3 ГБ) с `huggingface.co/ggerganov/whisper.cpp` в `~/.cache/whisper-cpp/`. На Mac скрипт использует `whisper.cpp` с Metal.
+Скачайте файл модели `ggml-large-v3.bin` (около 3 ГБ) с `huggingface.co/ggerganov/whisper.cpp` в `~/.cache/whisper-cpp/`. На Mac скрипт использует `whisper.cpp` с Metal: на Apple M4 Pro час видео распознаётся примерно за 6 минут.
+
+`tshark` и `capinfos` на Mac лежат в `/Applications/Wireshark.app/Contents/MacOS/` и обычно не попадают в `PATH`. Скрипты находят их сами. В ручных командах пишите полный путь.
 
 ## Obsidian
 
@@ -62,10 +69,10 @@ mkdir -p ~/.cache/whisper-cpp
 ## Проверка
 
 ```bash
-python scripts/doctor.py
+python -I scripts/doctor.py --net
 ```
 
-На macOS команда `python3`, если `python` не найден. Скрипт покажет, чего не хватает и чем это исправить.
+На macOS команда `python3`, если `python` не найден. Скрипт покажет, чего не хватает и чем это исправить. `--net` один раз проверяет, отвечают ли LMS, хранилища файлов курса и видеохостинги.
 
 ## Ручной выбор движка
 
@@ -74,7 +81,7 @@ python scripts/doctor.py
 | `WHISPER_BACKEND` | `whispercpp`, `faster-whisper` | принудительно выбрать движок |
 | `WHISPER_MODEL` | `large-v3`, `medium`, `small` | принудительно выбрать модель |
 
-Проверить выбор без запуска: `python scripts/transcribe.py media/w1/файл.mp4 --dry-run`.
+Проверить выбор без запуска: `python -I scripts/transcribe.py media/w1/файл.mp4 --dry-run`.
 
 ## Типичные проблемы
 
@@ -82,3 +89,7 @@ python scripts/doctor.py
 - **`faster-whisper` не ставится**: вероятно, слишком новый Python. Ставьте 3.12.
 - **`Could not load library cudnn...`**: выполните `pip install -r scripts/requirements-cuda.txt`.
 - **Кракозябры в CSV или заметках**: файлы должны быть в UTF-8 с LF. Это задаёт `.gitattributes`.
+- **`doctor.py` не видит `faster-whisper`, хотя пакет установлен**: вероятно, он стоит с `--user`. Переустановите без `--user` или в `.venv`.
+- **LMS показывает ошибки или снова просит войти**: войдите заново. Команда курса советует Яндекс Браузер. Ассистент может перейти в Claude in Chrome, но сначала спросит.
+- **`storage.ptsecurity.com` не отвечает** (`doctor.py --net`): попробуйте позже, через VPN или другую сеть. Или скачайте файлы сами и положите с исходными именами в `attachments/<неделя>/incoming/`. Ассистент переименует и зарегистрирует их.
+- **В PowerShell не работает `curl -sI`**: в Windows PowerShell 5.1 `curl` — это другая команда. Пишите `curl.exe`.

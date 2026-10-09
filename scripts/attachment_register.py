@@ -2,14 +2,18 @@
 """Register a downloaded course attachment in sources/attachments.csv.
 
 Usage:
-    python scripts/attachment_register.py attachments/w1/m3905-network-vm-start.pcap \
+    python -I scripts/attachment_register.py attachments/w1/m3905-network-vm-start.pcap \
         --material-id 3905 --week 1 --original-name 1.Network_VM_Start.pcap \
         --source-url "https://..."
+    python -I scripts/attachment_register.py <file anywhere> --dry-run
+        Shows the kind, sha256, size and meta, and checks for a duplicate. Writes nothing.
+        Use it on a fresh download in the scratchpad, before you name and move the file.
 
 Always computes sha256 and size. Detects the kind from the extension and the first
 bytes: pcap, archive, binary, dataset, vm-image, document, other (or use --kind).
 Extra data goes to the `meta` column as JSON:
-    pcap     packets, duration (capinfos, then tshark, then a built-in parser)
+    pcap     format (pcap or pcapng), packets, duration in seconds
+             (capinfos, then tshark, then a built-in parser)
     archive  entries, encrypted, unsafe_paths (zip and tar: the file LIST only)
 The file is only read. It is never run, unpacked, mounted or changed.
 """
@@ -137,12 +141,23 @@ def stats_builtin(path: Path):
     return len(times), max(times) - min(times)
 
 
+def pcap_format(path: Path) -> str:
+    with path.open("rb") as f:
+        return "pcapng" if f.read(4) == b"\x0a\x0d\x0d\x0a" else "pcap"
+
+
 def meta_pcap(path: Path) -> dict:
+    meta: dict = {"format": pcap_format(path)}
+    want = ".pcapng" if meta["format"] == "pcapng" else ".pcap"
+    if path.suffix.lower() in (".pcap", ".pcapng") and path.suffix.lower() != want:
+        print(f"Warning: the file is {meta['format']}, but the extension is {path.suffix}. "
+              f"Use {want} in the local name.", file=sys.stderr)
     stats = stats_capinfos(path) or stats_tshark(path) or stats_builtin(path)
     if stats is None:
         print("Warning: could not read packets and duration. Fill them by hand.", file=sys.stderr)
-        return {}
-    return {"packets": stats[0], "duration": round(stats[1], 2)}
+        return meta
+    meta.update({"packets": stats[0], "duration": round(stats[1], 2)})
+    return meta
 
 
 # ---------- archive: list names only, never extract ----------
@@ -191,49 +206,68 @@ def build_meta(kind: str, path: Path) -> dict:
     return {}
 
 
+def notes_for(meta: dict) -> None:
+    if meta.get("unsafe_paths"):
+        print("Warning: the archive has absolute or '..' paths. Do not extract it outside a lab VM.", file=sys.stderr)
+    if meta.get("encrypted"):
+        print("Note: the archive is password-protected. Take the password from the material text, never guess it.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("file", type=Path)
-    ap.add_argument("--material-id", required=True)
-    ap.add_argument("--week", required=True)
-    ap.add_argument("--original-name", required=True, help="file name as in the course text")
+    ap.add_argument("--material-id")
+    ap.add_argument("--week")
+    ap.add_argument("--original-name", help="file name as in the course text")
     ap.add_argument("--source-url", default="")
     ap.add_argument("--kind", choices=KINDS, help="override the detected kind")
+    ap.add_argument("--dry-run", action="store_true", help="show what would be registered; write nothing")
     args = ap.parse_args()
 
     path = args.file.resolve()
     if not path.is_file():
         sys.exit(f"File not found: {path}")
+
+    digest = sha256_of(path)
+    csv_path = ROOT / "sources" / "attachments.csv"
+    with csv_path.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    duplicate = next((r for r in rows if r["sha256"] == digest), None)
+    kind = args.kind or detect_kind(path)
+    meta = build_meta(kind, path)
+    meta_json = json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
+
+    if args.dry_run:
+        print(f"file={path.name}  kind={kind}  size={path.stat().st_size}\nsha256={digest}\nmeta={meta_json}")
+        if duplicate:
+            print(f"Already registered: row {duplicate['id']} ({duplicate['file']})")
+        notes_for(meta)
+        print("Dry run: nothing written.")
+        return
+
+    missing = [f"--{n.replace('_', '-')}" for n in ("material_id", "week", "original_name") if not getattr(args, n)]
+    if missing:
+        sys.exit("Missing: " + ", ".join(missing))
     try:
         rel = path.relative_to(ROOT).as_posix()
     except ValueError:
         sys.exit("The file must be inside this repository (attachments/<week>/).")
     if not rel.startswith("attachments/"):
         sys.exit("Save the file in attachments/<week>/ first.")
-
-    digest = sha256_of(path)
-    csv_path = ROOT / "sources" / "attachments.csv"
-    with csv_path.open(encoding="utf-8", newline="") as f:
-        rows = list(csv.DictReader(f))
-    for r in rows:
-        if r["sha256"] == digest:
-            sys.exit(f"Already registered: row {r['id']} ({r['file']})")
-
-    kind = args.kind or detect_kind(path)
-    meta = build_meta(kind, path)
+    if "incoming" in rel.split("/"):
+        sys.exit("Move the file out of incoming/ to attachments/<week>/ and give it its local name first.")
+    if duplicate:
+        sys.exit(f"Already registered: row {duplicate['id']} ({duplicate['file']})")
 
     next_id = max([int(r["id"]) for r in rows if r["id"].isdigit()] + [0]) + 1
     row = {"id": next_id, "material_id": args.material_id, "week": args.week, "kind": kind,
            "original_name": args.original_name, "file": rel, "sha256": digest,
-           "size": path.stat().st_size, "meta": json.dumps(meta, ensure_ascii=False, separators=(",", ":")),
+           "size": path.stat().st_size, "meta": meta_json,
            "source_url": args.source_url, "downloaded": "yes", "analyzed": "no"}
     with csv_path.open("a", encoding="utf-8", newline="") as f:
         csv.DictWriter(f, fieldnames=FIELDS, lineterminator="\n").writerow(row)
-    print(f"Registered row {next_id}: {rel}  kind={kind}  meta={row['meta']}")
-    if meta.get("unsafe_paths"):
-        print("Warning: the archive has absolute or '..' paths. Do not extract it outside a lab VM.", file=sys.stderr)
-    if meta.get("encrypted"):
-        print("Note: the archive is password-protected. Take the password from the material text, never guess it.")
+    print(f"Registered row {next_id}: {rel}  kind={kind}  meta={meta_json}")
+    notes_for(meta)
 
 
 if __name__ == "__main__":

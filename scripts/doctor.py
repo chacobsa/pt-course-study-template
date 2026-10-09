@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Check that the tools and the hardware are ready. Prints OK / MISSING and the fix.
 
-Usage: python scripts/doctor.py
+Usage:
+    python -I scripts/doctor.py          tools, hardware, project
+    python -I scripts/doctor.py --net    also checks once that the course hosts answer (TCP only)
 """
 from __future__ import annotations
 
+import argparse
 import importlib.util
+import socket
 import sys
 from pathlib import Path
 
@@ -21,7 +25,16 @@ HINTS = {
     "git": {"Darwin": "xcode-select --install", "Windows": "winget install Git.Git", "Linux": "sudo apt install git"},
     "obsidian": {"Darwin": "brew install --cask obsidian", "Windows": "winget install Obsidian.Obsidian", "Linux": "see obsidian.md/download"},
     "whisper-cli": {"Darwin": "brew install whisper-cpp", "Windows": "", "Linux": ""},
+    "suricata": {"Darwin": "brew install suricata", "Windows": "installer from suricata.io", "Linux": "sudo apt install suricata"},
 }
+# Hosts the course work needs. Checked once each, no retries.
+NET_HOSTS = [
+    ("lms.edu.ptsecurity.com", "LMS"),
+    ("storage.yandexcloud.net", "material pages (Tilda files)"),
+    ("storage.ptsecurity.com", "course files: PCAP and others"),
+    ("kinescope.io", "Kinescope videos"),
+    ("player.vimeo.com", "Vimeo videos"),
+]
 
 problems = 0
 
@@ -62,7 +75,26 @@ def check_tool(name: str, required: bool = True) -> None:
     report(bool(path), name, path or "", HINTS.get(name, {}).get(OS, ""), required)
 
 
+def check_net() -> None:
+    print("\nNetwork (TCP port 443, one try each, 10 s timeout):")
+    failed = False
+    for host, what in NET_HOSTS:
+        try:
+            socket.create_connection((host, 443), timeout=10).close()
+            print(f"[OK      ] {host}: {what}")
+        except OSError as err:
+            failed = True
+            print(f"[NO REPLY] {host}: {what} ({err})")
+    print("           This checks only that the host answers. It does not check certificates or the login.")
+    if failed:
+        print("           A host does not answer: try later, use a VPN or another network,")
+        print("           or the user downloads the files by hand into attachments/<week>/incoming/.")
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--net", action="store_true", help="also check that the course hosts answer")
+    args = ap.parse_args()
     print(f"System: {OS}, Python {sys.version.split()[0]}\n")
 
     py_ok = sys.version_info >= (3, 9)
@@ -76,6 +108,7 @@ def main() -> None:
     if profile in ("network", ""):  # Wireshark tools matter only for network courses
         check_tool("tshark", required=False)  # or the Wireshark GUI
         check_tool("capinfos", required=False)  # attachment_register.py has a built-in fallback
+        check_tool("suricata", required=False)  # to test rules in detections/
 
     obs = find_obsidian()
     report(bool(obs), "Obsidian (to read the notes)", obs or "", HINTS["obsidian"].get(OS, ""), required=False)
@@ -106,6 +139,9 @@ def main() -> None:
     course = (ROOT / "course.md").read_text(encoding="utf-8") if (ROOT / "course.md").exists() else ""
     print(f"           course profile: {course_profile() or 'not set'}")
     report("TODO" not in course, "course.md filled", fix="run /init-course in Claude Code", required=False)
+
+    if args.net:
+        check_net()
 
     print()
     if problems:
